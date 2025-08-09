@@ -1,20 +1,26 @@
+// middleware.ts
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export const config = { matcher: ["/admin/:path*"] };
+export function middleware(req: NextRequest) {
+  // allow all API routes and public pages
+  if (req.nextUrl.pathname.startsWith("/api")) return NextResponse.next();
 
-export function middleware(req: Request) {
   const pass = process.env.DEMO_PASSWORD || "";
-  if (!pass) return NextResponse.next(); // disabled if not set
+  const provided =
+    req.nextUrl.searchParams.get("pass") ||
+    req.headers.get("x-demo-password") ||
+    req.cookies.get("demo_pass")?.value;
 
-  const auth = req.headers.get("authorization");
-  if (auth?.startsWith("Basic ")) {
-    const decoded = atob(auth.split(" ")[1] || "");
-    const [user, pwd] = decoded.split(":");
-    if (user === "demo" && pwd === pass) return NextResponse.next();
+  if (provided === pass) {
+    const res = NextResponse.next();
+    if (!req.cookies.get("demo_pass")) {
+      res.cookies.set("demo_pass", provided!, { httpOnly: true, path: "/" });
+    }
+    return res;
   }
-
-  return new NextResponse("Authentication required", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="Admin"' },
-  });
+  return new NextResponse("Unauthorized", { status: 401 });
 }
+
+// only protect /admin
+export const config = { matcher: ["/admin/:path*"] };
