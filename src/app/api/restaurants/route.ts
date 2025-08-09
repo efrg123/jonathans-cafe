@@ -1,11 +1,12 @@
-// src/app/api/restaurants/route.ts
-export const runtime = 'nodejs'; // Prisma needs the Node runtime
+export const runtime = "nodejs";
 
-import { NextResponse } from 'next/server';
-import { prisma } from '../../../lib/prisma'; // path: from api/restaurants → lib
+import { NextResponse } from "next/server";
+import { prisma } from "../../../lib/prisma";
 
 export async function GET() {
-  // return the list of restaurants
-  const restaurants = await prisma.restaurant.findMany({ orderBy: { id: 'asc' } });
+  const restaurants = await prisma.restaurant.findMany({
+    select: { id: true, name: true, location: true },
+    orderBy: { id: "asc" },
+  });
   return NextResponse.json(restaurants);
 }
