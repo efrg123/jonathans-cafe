@@ -1,28 +1,65 @@
+// src/app/api/price-quote/route.ts
+export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { getAdjustmentPercent, applyAdjustment } from "@/lib/pricing";
+import { prisma } from "../../../lib/prisma";             // ← up 3 levels
+import { getAdjustmentPercent, applyAdjustment } from "../../../lib/pricing"; // ← up 3
 
-const prisma = new PrismaClient();
+
+type PriceQuoteBody = {
+  restaurantId: number;
+  tableId?: number | null;
+  whenISO?: string;
+  menuId?: number;
+  menuPrice?: number;
+};
+
+function isPriceQuoteBody(x: unknown): x is PriceQuoteBody {
+  if (typeof x !== "object" || x === null) return false;
+  const o = x as Record<string, unknown>;
+  if (typeof o.restaurantId !== "number") return false;
+  if (o.tableId !== undefined && o.tableId !== null && typeof o.tableId !== "number") return false;
+  if (o.menuId === undefined && typeof o.menuPrice !== "number") return false; // require one of them
+  if (o.menuId !== undefined && typeof o.menuId !== "number") return false;
+  if (o.whenISO !== undefined && typeof o.whenISO !== "string") return false;
+  return true;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { restaurantId, tableId, whenISO, menuId, menuPrice } = body;
-
-    if (!restaurantId || (!menuId && typeof menuPrice !== "number")) {
-      return NextResponse.json({ error: "restaurantId and (menuId or menuPrice) required" }, { status: 400 });
+    const raw = await req.json();
+    if (!isPriceQuoteBody(raw)) {
+      return NextResponse.json({ error: "Invalid body." }, { status: 400 });
     }
 
+    const { restaurantId, tableId = null, whenISO, menuId, menuPrice } = raw;
     const when = whenISO ? new Date(whenISO) : new Date();
-    const basePrice = typeof menuPrice === "number"
-      ? Number(menuPrice)
-      : (await prisma.menu.findFirstOrThrow({ where: { id: Number(menuId), restaurantId }, select: { price: true } })).price;
 
-    const adj = await getAdjustmentPercent(prisma, { restaurantId: Number(restaurantId), tableId: tableId ? Number(tableId) : null, when });
-    const finalPrice = applyAdjustment(basePrice, adj);
+    const basePrice =
+      typeof menuPrice === "number"
+        ? Number(menuPrice)
+        : (
+            await prisma.menu.findFirstOrThrow({
+              where: { id: Number(menuId), restaurantId: Number(restaurantId) },
+              select: { price: true },
+            })
+          ).price;
 
-    return NextResponse.json({ basePrice, adjustmentPercent: adj, finalPrice, at: when.toISOString() });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Internal error" }, { status: 500 });
+    const adj = await getAdjustmentPercent(prisma, {
+      restaurantId: Number(restaurantId),
+      tableId: tableId === null ? null : Number(tableId),
+      when,
+    });
+
+    const finalPrice = applyAdjustment(Number(basePrice), adj);
+
+    return NextResponse.json({
+      basePrice: Number(basePrice),
+      adjustmentPercent: adj,
+      finalPrice,
+      at: when.toISOString(),
+    });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Internal error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

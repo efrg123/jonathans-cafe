@@ -1,4 +1,9 @@
 // src/app/admin/page.tsx
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { prisma } from "../../lib/prisma"; // relative path from src/app/admin
 
 export default async function Page() {

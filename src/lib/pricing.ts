@@ -1,9 +1,17 @@
+// src/lib/pricing.ts
 import { PrismaClient } from "@prisma/client";
 
 export type QuoteInput = {
   restaurantId: number;
   tableId?: number | null;
-  when: Date;            // JS Date in your server timezone (UTC is fine)
+  when: Date;
+};
+
+type Rule = {
+  startTime: string;
+  endTime: string;
+  tableId: number | null;
+  adjustmentPercent: number | null;
 };
 
 function toHHMM(d: Date) {
@@ -16,26 +24,32 @@ export async function getAdjustmentPercent(
   prisma: PrismaClient,
   { restaurantId, tableId, when }: QuoteInput
 ): Promise<number> {
-  const dow = when.getDay();          // 0..6 (Sun..Sat)
+  const dow = when.getDay();
   const hhmm = toHHMM(when);
 
-  // Grab all rules for that day; we’ll filter in JS by time window.
   const rules = await prisma.pricingRule.findMany({
     where: { restaurantId, dayOfWeek: dow, isActive: true },
   });
 
-  const matches = rules.filter(r => r.startTime <= hhmm && hhmm < r.endTime);
+  const matches = (rules as Rule[]).filter(
+    (r) => r.startTime <= hhmm && hhmm < r.endTime
+  );
 
-  // Prefer table-specific; if multiple, take the largest absolute adjustment.
-  const tableMatches = matches.filter(r => r.tableId && tableId && r.tableId === tableId);
-  const pool = (tableMatches.length ? tableMatches : matches);
+  const tableMatches = matches.filter(
+    (r) => r.tableId != null && tableId != null && r.tableId === tableId
+  );
 
+  const pool = tableMatches.length ? tableMatches : matches;
   if (!pool.length) return 0;
 
-  return pool.sort((a, b) => Math.abs(b.adjustmentPercent) - Math.abs(a.adjustmentPercent))[0]
-             .adjustmentPercent;
+  const top = [...pool].sort(
+    (a, b) =>
+      Math.abs((b.adjustmentPercent ?? 0)) - Math.abs((a.adjustmentPercent ?? 0))
+  )[0];
+
+  return top?.adjustmentPercent ?? 0;
 }
 
-export function applyAdjustment(base: number, adjPercent: number) {
+export function applyAdjustment(base: number, adjPercent: number): number {
   return Math.round((base * (1 + adjPercent / 100)) * 100) / 100;
 }
