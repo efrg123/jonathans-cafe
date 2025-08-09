@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     const restaurants = await prisma.restaurant.findMany({
-      select: { id: true, name: true, slug: true },
+      select: { id: true, name: true },
       orderBy: { id: "asc" },
     });
     return NextResponse.json({ restaurants });
