@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   try {
     const tables = await prisma.table.findMany({
       where: { restaurantId: Number(rid) },
-      select: { id: true, number: true, restaurantId: true, seats: true },
+      select: { id: true, number: true, restaurantId: true }, // removed seats
       orderBy: { number: "asc" },
     });
     return NextResponse.json({ tables });
