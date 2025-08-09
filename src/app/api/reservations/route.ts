@@ -5,10 +5,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const {
-    restaurantId, tableId, customerName, partySize,
-    startsAtISO, durationMinutes, isPrepaid, prepaidAmount
-  } = body ?? {};
+  const { restaurantId, tableId, customerName, partySize, startsAtISO } = body ?? {};
 
   if (!restaurantId || !tableId || !customerName || !partySize || !startsAtISO) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -22,9 +19,7 @@ export async function POST(req: NextRequest) {
         customerName: String(customerName),
         partySize: Number(partySize),
         startsAt: new Date(startsAtISO),
-        durationMinutes: Number(durationMinutes ?? 90),
-        isPrepaid: Boolean(isPrepaid ?? false),
-        prepaidAmount: prepaidAmount != null ? Number(prepaidAmount) : null,
+        // removed: durationMinutes, isPrepaid, prepaidAmount (not in your model)
       },
       select: { id: true },
     });
