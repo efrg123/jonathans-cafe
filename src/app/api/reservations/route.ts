@@ -5,11 +5,27 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { restaurantId, tableId, customerName, partySize, startsAtISO } = body ?? {};
+  const {
+    restaurantId,
+    tableId,
+    customerName,
+    partySize,
+    startsAtISO,
+    durationMinutes,
+  } = body ?? {};
 
   if (!restaurantId || !tableId || !customerName || !partySize || !startsAtISO) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+
+  const startsAt = new Date(startsAtISO);
+  if (isNaN(startsAt.getTime())) {
+    return NextResponse.json({ error: "Invalid startsAtISO" }, { status: 400 });
+  }
+
+  const dur = Number(durationMinutes);
+  const minutes = Number.isFinite(dur) && dur > 0 ? dur : 90; // default 90
+  const endsAt = new Date(startsAt.getTime() + minutes * 60_000);
 
   try {
     const reservation = await prisma.reservation.create({
@@ -18,11 +34,12 @@ export async function POST(req: NextRequest) {
         tableId: Number(tableId),
         customerName: String(customerName),
         partySize: Number(partySize),
-        startsAt: new Date(startsAtISO),
-        // removed: durationMinutes, isPrepaid, prepaidAmount (not in your model)
+        startsAt,
+        endsAt, // <- required by your schema
       },
       select: { id: true },
     });
+
     return NextResponse.json({ reservation });
   } catch (e) {
     console.error(e);
