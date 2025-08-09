@@ -1,0 +1,110 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+model Restaurant {
+  id           Int           @id @default(autoincrement())
+  name         String
+  location     String?
+  menus        Menu[]
+  tables       Table[]
+  orders       Order[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  reservations Reservation[]
+  pricingRules PricingRule[]
+}
+
+model Menu {
+  id           Int         @id @default(autoincrement())
+  name         String
+  description  String?
+  price        Float
+  restaurantId Int
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  orderItems   OrderItem[] // added
+}
+
+model Table {
+  id           Int           @id @default(autoincrement())
+  number       Int
+  capacity     Int
+  restaurantId Int
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  orders       Order[]
+  reservations Reservation[]
+  pricingRules PricingRule[]
+}
+
+model Order {
+  id           Int         @id @default(autoincrement())
+  customerName String
+  partySize    Int
+  status       String      @default("pending")
+  restaurantId Int
+  tableId      Int?
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  table        Table?      @relation(fields: [tableId], references: [id])
+  items        OrderItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model OrderItem {
+  id       Int   @id @default(autoincrement())
+  orderId  Int
+  menuId   Int
+  quantity Int
+  order    Order @relation(fields: [orderId], references: [id])
+  menu     Menu  @relation(fields: [menuId], references: [id])
+}
+
+model PricingRule {
+  id                Int     @id @default(autoincrement())
+  restaurantId      Int
+  tableId           Int?
+  dayOfWeek         Int // 0=Sun .. 6=Sat
+  startTime         String // "HH:MM"
+  endTime           String // "HH:MM"
+  adjustmentPercent Int // -20 = 20% off, +10 = 10% surcharge
+  isActive          Boolean @default(true)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  table      Table?     @relation(fields: [tableId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, dayOfWeek, startTime, endTime])
+}
+
+model Reservation {
+  id            Int      @id @default(autoincrement())
+  restaurantId  Int
+  tableId       Int
+  customerName  String
+  partySize     Int
+  startsAt      DateTime
+  endsAt        DateTime
+  status        String   @default("confirmed")
+  isPrepaid     Boolean  @default(false)
+  prepaidAmount Float?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  table      Table      @relation(fields: [tableId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, startsAt])
+  @@index([tableId, startsAt, endsAt])
+}

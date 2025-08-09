@@ -1,0 +1,21 @@
+# Node/Next
+node_modules/
+.next/
+.turbo/
+dist/
+build/
+.vercel/
+
+# Env & local config
+.env
+.env.*
+!.env.example
+
+# Prisma
+# keep migrations in Git; ignore local sqlite if you ever use it
+prisma/dev.db
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
