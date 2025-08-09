@@ -1,65 +1,22 @@
-// src/app/api/price-quote/route.ts
+﻿import { NextRequest, NextResponse } from "next/server";
+
 export const runtime = "nodejs";
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "../../../lib/prisma";             // ← up 3 levels
-import { getAdjustmentPercent, applyAdjustment } from "../../../lib/pricing"; // ← up 3
-
-
-type PriceQuoteBody = {
-  restaurantId: number;
-  tableId?: number | null;
-  whenISO?: string;
-  menuId?: number;
-  menuPrice?: number;
-};
-
-function isPriceQuoteBody(x: unknown): x is PriceQuoteBody {
-  if (typeof x !== "object" || x === null) return false;
-  const o = x as Record<string, unknown>;
-  if (typeof o.restaurantId !== "number") return false;
-  if (o.tableId !== undefined && o.tableId !== null && typeof o.tableId !== "number") return false;
-  if (o.menuId === undefined && typeof o.menuPrice !== "number") return false; // require one of them
-  if (o.menuId !== undefined && typeof o.menuId !== "number") return false;
-  if (o.whenISO !== undefined && typeof o.whenISO !== "string") return false;
-  return true;
-}
 
 export async function POST(req: NextRequest) {
-  try {
-    const raw = await req.json();
-    if (!isPriceQuoteBody(raw)) {
-      return NextResponse.json({ error: "Invalid body." }, { status: 400 });
-    }
-
-    const { restaurantId, tableId = null, whenISO, menuId, menuPrice } = raw;
-    const when = whenISO ? new Date(whenISO) : new Date();
-
-    const basePrice =
-      typeof menuPrice === "number"
-        ? Number(menuPrice)
-        : (
-            await prisma.menu.findFirstOrThrow({
-              where: { id: Number(menuId), restaurantId: Number(restaurantId) },
-              select: { price: true },
-            })
-          ).price;
-
-    const adj = await getAdjustmentPercent(prisma, {
-      restaurantId: Number(restaurantId),
-      tableId: tableId === null ? null : Number(tableId),
-      when,
-    });
-
-    const finalPrice = applyAdjustment(Number(basePrice), adj);
-
-    return NextResponse.json({
-      basePrice: Number(basePrice),
-      adjustmentPercent: adj,
-      finalPrice,
-      at: when.toISOString(),
-    });
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Internal error";
-    return NextResponse.json({ error: message }, { status: 500 });
+  const { restaurantId, tableId, whenISO, menuPrice } = await req.json();
+  if (!restaurantId || !tableId || !whenISO) {
+    return NextResponse.json({ error: "restaurantId, tableId, whenISO required" }, { status: 400 });
   }
+  const when = new Date(whenISO);
+  const hour = when.getUTCHours();
+  const day = when.getUTCDay(); // 0=Sun ... 6=Sat
+
+  let adjustmentPercent = 0;
+  if ((day === 5 || day === 6) && hour >= 18 && hour <= 22) adjustmentPercent = 25;  // Fri/Sat evening peak
+  else if (day >= 1 && day <= 4 && hour < 18) adjustmentPercent = -20;               // Weekday before 6pm off-peak
+
+  const basePrice = menuPrice != null ? Number(menuPrice) : 0;
+  const finalPrice = Math.round(basePrice * (1 + adjustmentPercent / 100) * 100) / 100;
+
+  return NextResponse.json({ basePrice, adjustmentPercent, finalPrice });
 }
