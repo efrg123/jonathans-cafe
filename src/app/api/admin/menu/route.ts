@@ -1,4 +1,4 @@
-﻿// src/app/api/admin/menu/route.ts
+// src/app/api/admin/menu/route.ts
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { prisma } from '@/lib/prisma';
