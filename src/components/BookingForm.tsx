@@ -1,4 +1,4 @@
-// src/components/BookingForm.tsx
+﻿// src/components/BookingForm.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -78,8 +78,12 @@ export default function BookingForm({ restaurantId }: { restaurantId: number }) 
 
       const data: PriceQuote = await response.json();
       setQuote(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) { // This line is fixed
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred');
+      }
     } finally {
       setIsLoading(false);
     }
