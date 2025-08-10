@@ -13,7 +13,7 @@ export default function Home() {
           </p>
         </div>
         
-        {/* Add the new component here, passing the restaurant ID */}
+        {/* This line ensures the correct form is displayed */}
         <BookingForm restaurantId={1} />
       </div>
     </main>
