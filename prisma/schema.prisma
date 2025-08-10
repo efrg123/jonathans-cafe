@@ -31,7 +31,15 @@ model Menu {
   restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  orderItems   OrderItem[] // added
+  orderItems   OrderItem[]
+  tags         MenuTag[] // ADDED: This creates the many-to-many relation
+}
+
+// NEW MODEL: For Food Passport filtering
+model MenuTag {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  menus Menu[] // This completes the many-to-many relation
 }
 
 model Table {
@@ -70,6 +78,7 @@ model OrderItem {
 
 model PricingRule {
   id                Int     @id @default(autoincrement())
+  name              String? // ADDED: To give rules a name like "Happy Hour"
   restaurantId      Int
   tableId           Int?
   dayOfWeek         Int // 0=Sun .. 6=Sat
