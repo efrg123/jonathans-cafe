@@ -1,4 +1,5 @@
 ﻿// src/app/api/reservations/route.ts
+// Forcing a fresh deployment to update Zod validation
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'; // Using the recommended path alias
 import { z } from 'zod';
