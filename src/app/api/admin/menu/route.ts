@@ -2,7 +2,33 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers'; // Import the cookies function
+
+
+// src/app/api/admin/menu/route.ts
+// ... (imports)
+
+// Import the cookies function
+import { cookies } from 'next/headers';
+
+export async function GET(request: Request) {
+  // ... (authHeader and jwt logic)
+
+  // 2. Create a temporary Supabase client to validate the token
+  const cookieStore = cookies(); // Call cookies() once outside
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
+
+  // ... (rest of the code)
+}
 
 // NOTE: We no longer need the complex cookie handler here
 
