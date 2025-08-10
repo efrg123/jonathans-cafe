@@ -1,5 +1,5 @@
 ﻿// src/app/page.tsx
-import BookingForm from '@/components/BookingForm';
+import MenuFilter from '@/components/MenuFilter';
 
 export default function Home() {
   return (
@@ -13,8 +13,8 @@ export default function Home() {
           </p>
         </div>
         
-        {/* FIX: Removed the unnecessary restaurantId prop */}
-        <BookingForm />
+        {/* Display the new Food Passport Menu Filter component */}
+        <MenuFilter />
       </div>
     </main>
   );
