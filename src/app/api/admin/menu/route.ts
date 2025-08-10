@@ -1,5 +1,4 @@
 ﻿// src/app/api/admin/menu/route.ts
-//forcing to comitt
 import { NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
@@ -18,10 +17,16 @@ export async function GET() {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value, ...options }); } catch (error) {}
+          try { 
+            // @ts-expect-error - Workaround for type issue in Next.js canary
+            cookieStore.set({ name, value, ...options }); 
+          } catch (error) {}
         },
         remove(name: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value: '', ...options }); } catch (error) {}
+          try { 
+            // @ts-expect-error - Workaround for type issue in Next.js canary
+            cookieStore.set({ name, value: '', ...options }); 
+          } catch (error) {}
         },
       },
     }
