@@ -3,6 +3,11 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
+// NEW: A simple GET handler for testing
+export async function GET() {
+  return NextResponse.json({ message: 'Price quote endpoint is alive' });
+}
+
 // Define the schema for the incoming request body
 const quoteSchema = z.object({
   restaurantId: z.number(),
@@ -61,8 +66,6 @@ export async function POST(request: Request) {
         endTime: { gt: time },   // Rule ends after the requested time
         isActive: true,
       },
-      // In case of multiple rules, you might want to order them by priority
-      // For now, we just take the first one we find
     });
 
     // 4. Apply the rule if one exists
