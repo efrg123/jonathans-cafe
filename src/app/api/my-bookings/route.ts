@@ -4,7 +4,8 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(request: Request) {
+// FIX: Removed the unused 'request' parameter
+export async function GET() {
   const cookieStore = cookies();
 
   const supabase = createServerClient(
@@ -13,21 +14,24 @@ export async function GET(request: Request) {
     {
       cookies: {
         get(name: string) {
-          // @ts-ignore - This is a workaround for a type issue in Next.js canary versions
+          // FIX: Use the linter-recommended @ts-expect-error
+          // @ts-expect-error - Workaround for type issue in Next.js canary
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options });
           } catch (error) {
-            // Ignore errors in read-only contexts
+            // The `set` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options });
           } catch (error) {
-            // Ignore errors in read-only contexts
+            // The `delete` method was called from a Server Component.
           }
         },
       },
@@ -59,7 +63,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(reservations);
-  } catch (error) {
+  } catch (error) { // FIX: The 'error' variable is now used in the log
     console.error('Error fetching reservations:', error);
     return NextResponse.json(
       { error: 'Failed to fetch reservations' },
