@@ -17,35 +17,37 @@ export async function GET() {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          try { 
-            // @ts-expect-error - Workaround for type issue in Next.js canary
-            cookieStore.set({ name, value, ...options }); 
-          } catch (error) {}
+          try { cookieStore.set({ name, value, ...options }); } catch (error) {}
         },
         remove(name: string, options: CookieOptions) {
-          try { 
-            // @ts-expect-error - Workaround for type issue in Next.js canary
-            cookieStore.set({ name, value: '', ...options }); 
-          } catch (error) {}
+          try { cookieStore.set({ name, value: '', ...options }); } catch (error) {}
         },
       },
     }
   );
 
   try {
-    // 1. Check if a user is logged in
+    // 1. Get the logged-in user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'You must be logged in to access this.' }, { status: 401 });
     }
 
-    // 2. For the MVP, fetch the menu for a hardcoded restaurant (Jonathan's Cafe)
-    // TODO: In the future, get the restaurantId associated with the logged-in user
-    const restaurantId = 1; 
+    // 2. Find the restaurant owned by this user
+    const restaurant = await prisma.restaurant.findUnique({
+      where: {
+        ownerId: user.id,
+      },
+    });
 
+    if (!restaurant) {
+      return NextResponse.json({ error: 'You do not own a restaurant.' }, { status: 403 });
+    }
+
+    // 3. Fetch the menu for that specific restaurant
     const menuItems = await prisma.menu.findMany({
       where: {
-        restaurantId: restaurantId,
+        restaurantId: restaurant.id,
       },
       orderBy: {
         name: 'asc',
