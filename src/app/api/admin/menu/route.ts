@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { prisma } from '@/lib/prisma';
+import { cookies } from 'next/headers'; // Import the cookies function
 
 // NOTE: We no longer need the complex cookie handler here
 
@@ -17,7 +18,13 @@ export async function GET(request: Request) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {} // FIX: Add the required empty options object
+    {
+      cookies: {
+        get(name: string) {
+          return cookies().get(name)?.value;
+        },
+      },
+    } // FIX: Add the required cookies object
   );
 
   try {
