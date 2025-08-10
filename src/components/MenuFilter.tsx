@@ -54,7 +54,6 @@ export default function MenuFilter() {
   const [filteredMenu, setFilteredMenu] = useState<MenuItem[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   
-  // Use our custom hook to manage selected tags in localStorage
   const [selectedTags, setSelectedTags] = useLocalStorage<string[]>('foodPassportPrefs', []);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -86,7 +85,6 @@ export default function MenuFilter() {
         const data: MenuItem[] = await res.json();
         setFullMenu(data);
 
-        // Automatically find all unique tags from the fetched menu
         const allTags = new Set<string>();
         data.forEach(item => item.tags.forEach(tag => allTags.add(tag.name)));
         setAvailableTags(Array.from(allTags).sort());
@@ -103,7 +101,7 @@ export default function MenuFilter() {
   // 3. Re-filter the menu whenever the full menu or selected tags change
   useEffect(() => {
     if (selectedTags.length === 0) {
-      setFilteredMenu(fullMenu); // If no filters, show everything
+      setFilteredMenu(fullMenu);
       return;
     }
     const filtered = fullMenu.filter(item => 
@@ -114,20 +112,18 @@ export default function MenuFilter() {
     setFilteredMenu(filtered);
   }, [fullMenu, selectedTags]);
 
+  // THIS IS THE FIX:
   const handleTagChange = (tagName: string) => {
-    // FIX: Add the type for prevTags
-    setSelectedTags((prevTags: string[]) => 
-      prevTags.includes(tagName) 
-        ? prevTags.filter(t => t !== tagName) // Uncheck: remove tag
-        : [...prevTags, tagName] // Check: add tag
-    );
+    const newTags = selectedTags.includes(tagName)
+      ? selectedTags.filter(t => t !== tagName) // If tag exists, remove it
+      : [...selectedTags, tagName];             // If tag doesn't exist, add it
+    setSelectedTags(newTags); // Pass the new array directly
   };
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 max-w-2xl mx-auto mt-10">
       <h2 className="text-2xl font-bold mb-4 text-gray-800">Food Passport Menu</h2>
 
-      {/* Restaurant Selector */}
       <div className="mb-4">
         <label htmlFor="res-select" className="block text-sm font-medium text-gray-700 mb-1">Select Restaurant</label>
         <select
@@ -140,7 +136,6 @@ export default function MenuFilter() {
         </select>
       </div>
 
-      {/* Filter Toggles */}
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-700 mb-2">Filter by Preference</h3>
         <div className="flex flex-wrap gap-4">
@@ -160,7 +155,6 @@ export default function MenuFilter() {
 
       <hr className="my-4"/>
 
-      {/* Menu Display */}
       <div>
         {isLoading && <p>Loading menu...</p>}
         {error && <p className="text-red-500">{error}</p>}
