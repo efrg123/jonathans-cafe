@@ -13,8 +13,8 @@ export default function Home() {
           </p>
         </div>
         
-        {/* This line ensures the correct form is displayed */}
-        <BookingForm restaurantId={1} />
+        {/* FIX: Removed the unnecessary restaurantId prop */}
+        <BookingForm />
       </div>
     </main>
   );
