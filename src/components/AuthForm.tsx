@@ -37,8 +37,14 @@ export default function AuthForm() {
         setMessage('Successfully signed in!');
         // In a real app, you would redirect the user here
       }
-    } catch (err: any) {
-      setError(err.error_description || err.message);
+    } catch (err) { // <-- THIS IS THE FIX
+      if (err instanceof Error) {
+        setError(err.message);
+      } else if (typeof err === 'object' && err !== null && 'message' in err) {
+        setError(String((err as { message: string }).message));
+      } else {
+        setError('An unknown error occurred.');
+      }
     } finally {
       setIsLoading(false);
     }
