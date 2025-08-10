@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const { PrismaClient } = require('@prisma/client');
 
 // Use the DIRECT_DATABASE_URL for seeding
 const prisma = new PrismaClient({
@@ -12,109 +12,97 @@ const prisma = new PrismaClient({
 async function main() {
   console.log(`Start seeding ...`);
 
-  // --- Clear existing data to prevent duplicates ---
+  // --- Clear existing data for a clean seed ---
+  // FIX: Delete dependent records (Reservation) before their dependencies (Table)
+  await prisma.orderItem.deleteMany({});
+  await prisma.reservation.deleteMany({}); // Added this line
   await prisma.pricingRule.deleteMany({});
-  console.log('Deleted records in pricingRule table');
-
-  // When we delete all MenuTags, Prisma automatically handles disconnecting them from Menus.
   await prisma.menuTag.deleteMany({});
-  console.log('Deleted records in menuTag table');
+  await prisma.menu.deleteMany({});
+  await prisma.table.deleteMany({});
+  await prisma.restaurant.deleteMany({});
+  console.log('Cleared previous data.');
 
-  // --- Create Restaurants and Menus (if they don't exist) ---
-  const restaurant1 = await prisma.restaurant.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
+  // --- Create Jonathan's Cafe ---
+  const jonathans = await prisma.restaurant.create({
+    data: {
       id: 1,
       name: "Jonathan's Cafe",
       location: '123 Main St',
+      tables: {
+        create: [{ id: 1, number: 1, capacity: 4 }],
+      },
     },
   });
+  console.log("Created Jonathan's Cafe");
 
-  const table1 = await prisma.table.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      id: 1,
-      number: 1,
-      capacity: 4,
-      restaurantId: restaurant1.id,
-    },
+  const menuBurger = await prisma.menu.create({
+    data: { name: 'Classic Burger', price: 12.99, restaurantId: jonathans.id },
+  });
+  const menuWrap = await prisma.menu.create({
+    data: { name: 'Veggie Wrap', price: 9.99, restaurantId: jonathans.id },
+  });
+  const menuSalad = await prisma.menu.create({
+    data: { name: 'Grilled Chicken Salad', price: 14.5, restaurantId: jonathans.id },
   });
 
-  // We need to delete old menus to prevent them from piling up on each seed
-  await prisma.orderItem.deleteMany({});
-  await prisma.menu.deleteMany({});
-
-  const menu1 = await prisma.menu.create({
+  // --- Create Ali's Bistro ---
+  const alis = await prisma.restaurant.create({
     data: {
-      name: 'Classic Burger',
-      price: 12.99,
-      restaurantId: restaurant1.id,
+      id: 2,
+      name: "Ali's Bistro",
+      location: '456 Market St',
     },
   });
+  console.log("Created Ali's Bistro");
+  await prisma.menu.create({
+    data: { name: 'Pasta Carbonara', price: 18.00, restaurantId: alis.id },
+  });
+  await prisma.menu.create({
+    data: { name: 'Margherita Pizza', price: 15.50, restaurantId: alis.id },
+  });
 
-  const menu2 = await prisma.menu.create({
+  // --- Create McDonald's ---
+  const mcdonalds = await prisma.restaurant.create({
     data: {
-      name: 'Veggie Wrap',
-      price: 9.99,
-      restaurantId: restaurant1.id,
+      id: 3,
+      name: "McDonald's",
+      location: '789 Fast Food Ln',
     },
   });
-
-  const menu3 = await prisma.menu.create({
-    data: {
-      name: 'Grilled Chicken Salad',
-      price: 14.5,
-      restaurantId: restaurant1.id,
-    },
+  console.log("Created McDonald's");
+  await prisma.menu.create({
+    data: { name: 'Big Mac', price: 5.99, restaurantId: mcdonalds.id },
   });
-
-  console.log('Created base restaurants, tables, and menus.');
+  await prisma.menu.create({
+    data: { name: 'McNuggets (10pc)', price: 6.49, restaurantId: mcdonalds.id },
+  });
 
   // --- Create MenuTags for Food Passport ---
-  console.log('Creating menu tags...');
-  const tagVegetarian = await prisma.menuTag.create({
-    data: { name: 'Vegetarian' },
-  });
-  const tagHalal = await prisma.menuTag.create({
-    data: { name: 'Halal' },
-  });
-  const tagGlutenFree = await prisma.menuTag.create({
-    data: { name: 'Gluten-Free' },
-  });
+  const tagVegetarian = await prisma.menuTag.create({ data: { name: 'Vegetarian' } });
+  const tagHalal = await prisma.menuTag.create({ data: { name: 'Halal' } });
+  const tagGlutenFree = await prisma.menuTag.create({ data: { name: 'Gluten-Free' } });
   console.log('Menu tags created.');
 
   // --- Connect Tags to Menus ---
-  console.log('Connecting tags to menu items...');
   await prisma.menu.update({
-    where: { id: menu2.id },
-    data: {
-      tags: {
-        connect: { id: tagVegetarian.id },
-      },
-    },
+    where: { id: menuWrap.id },
+    data: { tags: { connect: { id: tagVegetarian.id } } },
   });
-
   await prisma.menu.update({
-    where: { id: menu3.id },
-    data: {
-      tags: {
-        connect: [{ id: tagHalal.id }, { id: tagGlutenFree.id }],
-      },
-    },
+    where: { id: menuSalad.id },
+    data: { tags: { connect: [{ id: tagHalal.id }, { id: tagGlutenFree.id }] } },
   });
   console.log('Tags connected.');
 
-  // --- Create a PricingRule for Dynamic Pricing ---
-  console.log('Creating pricing rules...');
+  // --- Create PricingRule for Jonathan's Cafe ---
   await prisma.pricingRule.create({
     data: {
-      restaurantId: restaurant1.id,
+      restaurantId: jonathans.id,
       dayOfWeek: 5, // Friday
-      startTime: '17:00', // 5:00 PM
-      endTime: '19:00', // 7:00 PM
-      adjustmentPercent: -20, // 20% discount
+      startTime: '17:00',
+      endTime: '19:00',
+      adjustmentPercent: -20,
       isActive: true,
       name: 'Friday Happy Hour',
     },
