@@ -1,4 +1,4 @@
-// Lists tables; optionally filter by ?restaurantId=#
+﻿// Lists tables; optionally filter by ?restaurantId=#
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";

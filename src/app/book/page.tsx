@@ -107,6 +107,16 @@ export default function BookPage() {
     const n = Number(menuPrice);
     return !Number.isNaN(n) && n >= 0;
   }, [restaurantId, tableId, startsAt, menuPrice]);
+  const missing: string[] = [];
+if (!restaurantId) missing.push("restaurant");
+if (!tableId) missing.push("table");
+if (!name) missing.push("name");
+if (!partySize || Number.isNaN(Number(partySize)) || Number(partySize) <= 0) missing.push("party size");
+if (!startsAt) missing.push("date & time");
+
+const canBook =
+  missing.length === 0;
+
 
   async function onQuote() {
     if (!canQuote) return;
