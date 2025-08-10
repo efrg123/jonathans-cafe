@@ -115,7 +115,8 @@ export default function MenuFilter() {
   }, [fullMenu, selectedTags]);
 
   const handleTagChange = (tagName: string) => {
-    setSelectedTags(prevTags => 
+    // FIX: Add the type for prevTags
+    setSelectedTags((prevTags: string[]) => 
       prevTags.includes(tagName) 
         ? prevTags.filter(t => t !== tagName) // Uncheck: remove tag
         : [...prevTags, tagName] // Check: add tag
