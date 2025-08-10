@@ -36,8 +36,9 @@ export default function Header() {
   return (
     <header className="bg-white shadow-md">
       <nav className="container mx-auto px-4 sm:px-8 py-4 flex justify-between items-center">
+        {/* FIX: Replaced the apostrophe with &apos; */}
         <Link href="/" className="text-2xl font-bold text-teal-600">
-          Jonathan's Café
+          Jonathan&apos;s Café
         </Link>
         <div className="flex items-center gap-4">
           {!loading && (
