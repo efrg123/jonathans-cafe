@@ -2,12 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  // **NEW LINE:** If the request is for an API route, do nothing and let it pass.
-  if (req.nextUrl.pathname.startsWith('/api')) {
-    return NextResponse.next();
-  }
+  // NOTE: The check for '/api' is now removed from here
+  // because the new 'matcher' config below handles it.
 
-  // Get the username and password from the project's environment variables
   const basicAuthUser = 'demo';
   const basicAuthPass = process.env.DEMO_PASSWORD;
 
@@ -29,6 +26,7 @@ export function middleware(req: NextRequest) {
     }
   }
 
+  // If auth fails, send the login prompt
   return new NextResponse('Unauthorized', {
     status: 401,
     headers: {
@@ -37,7 +35,17 @@ export function middleware(req: NextRequest) {
   });
 }
 
-// This config ensures the middleware only runs on the /admin route
+// NEW, MORE ROBUST CONFIG:
+// This tells the middleware to run on EVERYTHING EXCEPT specific paths.
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 };
