@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link'; // Import the Link component
 
 // Define the structure of our data
 interface MenuTag {
@@ -112,12 +113,11 @@ export default function MenuFilter() {
     setFilteredMenu(filtered);
   }, [fullMenu, selectedTags]);
 
-  // THIS IS THE FIX:
   const handleTagChange = (tagName: string) => {
     const newTags = selectedTags.includes(tagName)
-      ? selectedTags.filter(t => t !== tagName) // If tag exists, remove it
-      : [...selectedTags, tagName];             // If tag doesn't exist, add it
-    setSelectedTags(newTags); // Pass the new array directly
+      ? selectedTags.filter(t => t !== tagName)
+      : [...selectedTags, tagName];
+    setSelectedTags(newTags);
   };
 
   return (
@@ -172,7 +172,13 @@ export default function MenuFilter() {
                     ))}
                   </div>
                 </div>
-                <p className="font-medium text-gray-700">${item.price.toFixed(2)}</p>
+                <div className="flex items-center gap-4">
+                    <p className="font-medium text-gray-700">${item.price.toFixed(2)}</p>
+                    {/* THIS IS THE NEW BUTTON */}
+                    <Link href={`/book?restaurantId=${selectedRestaurantId}&menuId=${item.id}`} className="bg-teal-600 text-white text-sm py-1 px-3 rounded-md hover:bg-teal-700">
+                        Book
+                    </Link>
+                </div>
               </li>
             ))}
             {filteredMenu.length === 0 && fullMenu.length > 0 && (

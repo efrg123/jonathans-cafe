@@ -1,367 +1,220 @@
+﻿// src/app/book/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
-const brand = {
-  bg: "bg-[#f5f5ef]", // soft off-white like your screenshot
-  card: "bg-white",
-  primary: "bg-[#1d7a73] text-white", // teal button
-  primaryHover: "hover:bg-[#17635e]",
-  field: "bg-[#f2efe8] focus:ring-2 focus:ring-[#1d7a73] focus:outline-none",
-  label: "text-[#1d7a73] font-medium",
-};
-
-type Restaurant = { id: number; name: string };
-type Table = { id: number; number: number; restaurantId: number };
-
-type Quote = {
+// Define the structure of our data
+interface Restaurant {
+  id: number;
+  name: string;
+}
+interface MenuItem {
+  id: number;
+  name: string;
+  price: number;
+}
+interface PriceQuote {
   basePrice: number;
   adjustmentPercent: number;
   finalPrice: number;
-};
-
-type ReservationResponse = {
-  reservation?: { id?: number };
-  error?: string;
-};
-
-type QuoteResponse = {
-  basePrice?: number;
-  adjustmentPercent?: number;
-  finalPrice?: number;
-  error?: string;
-};
+  ruleName: string | null;
+}
 
 export default function BookPage() {
-  // form state
+  const searchParams = useSearchParams();
+
+  // State for UI
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [tables, setTables] = useState<Table[]>([]);
-  const [restaurantId, setRestaurantId] = useState<string>("");
-  const [tableId, setTableId] = useState<string>("");
-  const [partySize, setPartySize] = useState<string>("");
-  const [name, setName] = useState<string>("");
-  const [startsAt, setStartsAt] = useState<string>("");
-  const [menuPrice, setMenuPrice] = useState<string>("");
-
-  // ui state
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [menus, setMenus] = useState<MenuItem[]>([]);
+  const [quote, setQuote] = useState<PriceQuote | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [done, setDone] = useState<{ id: number } | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // load restaurants (public list)
+  // State for user selections
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('');
+  const [selectedMenuId, setSelectedMenuId] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState('2025-08-15');
+  const [selectedTime, setSelectedTime] = useState('18:00');
+  const [customerName, setCustomerName] = useState('');
+  const [partySize, setPartySize] = useState(2);
+
+  // 1. Read initial restaurant and menu from URL
   useEffect(() => {
-    let ignore = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/restaurants", { cache: "no-store" });
-        const data = (await res.json()) as { restaurants?: Restaurant[]; error?: string };
-        if (!ignore) {
-          if (!res.ok || !data.restaurants) throw new Error(data.error || "Failed to load restaurants");
-          setRestaurants(data.restaurants);
-        }
-      } catch {
-        if (!ignore) setRestaurants([]);
+    const restaurantIdFromUrl = searchParams.get('restaurantId');
+    const menuIdFromUrl = searchParams.get('menuId');
+    if (restaurantIdFromUrl) {
+      setSelectedRestaurantId(restaurantIdFromUrl);
+    }
+    if (menuIdFromUrl) {
+      setSelectedMenuId(menuIdFromUrl);
+    }
+  }, [searchParams]);
+
+  // 2. Fetch all restaurants on initial load
+  useEffect(() => {
+    async function fetchRestaurants() {
+      const res = await fetch('/api/restaurants');
+      const data = await res.json();
+      setRestaurants(data);
+      // If no restaurant is selected from URL, default to the first one
+      if (!selectedRestaurantId && data.length > 0) {
+        setSelectedRestaurantId(data[0].id.toString());
       }
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, []);
+    }
+    fetchRestaurants();
+  }, [selectedRestaurantId]); // Re-fetch if ID from URL was invalid
 
-  // when restaurant changes, load its tables
+  // 3. Fetch the menu for the selected restaurant
   useEffect(() => {
-    let ignore = false;
-    if (!restaurantId) {
-      setTables([]);
-      setTableId("");
+    if (!selectedRestaurantId) return;
+
+    async function fetchMenus() {
+      const res = await fetch(`/api/menus?restaurantId=${selectedRestaurantId}`);
+      const data = await res.json();
+      setMenus(data);
+      // If no menu is selected from URL, default to the first one
+      if (!selectedMenuId && data.length > 0) {
+        setSelectedMenuId(data[0].id.toString());
+      }
+    }
+    fetchMenus();
+  }, [selectedRestaurantId, selectedMenuId]);
+
+  // Handler for getting a price quote
+  const handleGetQuote = async () => {
+    if (!selectedRestaurantId || !selectedMenuId || !selectedDate || !selectedTime) {
+      setError('Please select all fields.');
       return;
     }
-    (async () => {
-      try {
-        const res = await fetch(`/api/tables?restaurantId=${encodeURIComponent(restaurantId)}`, {
-          cache: "no-store",
-        });
-        const data = (await res.json()) as { tables?: Table[]; error?: string };
-        if (!ignore) {
-          if (!res.ok || !data.tables) throw new Error(data.error || "Failed to load tables");
-          setTables(data.tables);
-          setTableId("");
-        }
-      } catch {
-        if (!ignore) {
-          setTables([]);
-          setTableId("");
-        }
-      }
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [restaurantId]);
-
-  const canQuote = useMemo(() => {
-    if (!restaurantId || !tableId || !startsAt) return false;
-    if (menuPrice === "") return true;
-    const n = Number(menuPrice);
-    return !Number.isNaN(n) && n >= 0;
-  }, [restaurantId, tableId, startsAt, menuPrice]);
-  const missing: string[] = [];
-if (!restaurantId) missing.push("restaurant");
-if (!tableId) missing.push("table");
-if (!name) missing.push("name");
-if (!partySize || Number.isNaN(Number(partySize)) || Number(partySize) <= 0) missing.push("party size");
-if (!startsAt) missing.push("date & time");
-
-const canBook =
-  missing.length === 0;
-
-
-  async function onQuote() {
-    if (!canQuote) return;
+    setIsLoading(true);
     setError(null);
     setQuote(null);
+    const whenLocal = `${selectedDate}T${selectedTime}:00`;
     try {
-      const res = await fetch("/api/price-quote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/price-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          restaurantId: Number(restaurantId),
-          tableId: Number(tableId),
-          whenISO: new Date(startsAt).toISOString(),
-          menuPrice: menuPrice === "" ? null : Number(menuPrice),
+          restaurantId: parseInt(selectedRestaurantId),
+          menuId: parseInt(selectedMenuId),
+          whenLocal,
         }),
       });
-      const data = (await res.json()) as QuoteResponse;
-      if (!res.ok || data.error || data.finalPrice == null || data.basePrice == null || data.adjustmentPercent == null) {
-        throw new Error(data.error || "Failed to quote");
-      }
-      setQuote({
-        basePrice: data.basePrice,
-        adjustmentPercent: data.adjustmentPercent,
-        finalPrice: data.finalPrice,
-      });
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to quote";
-      setError(message);
-    }
-  }
-
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setDone(null);
-    try {
-      const res = await fetch("/api/reservations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          restaurantId: Number(restaurantId),
-          tableId: Number(tableId),
-          customerName: name,
-          partySize: Number(partySize),
-          startsAtISO: new Date(startsAt).toISOString(),
-          durationMinutes: 90,
-          isPrepaid: !!quote && quote.finalPrice > 0,
-          prepaidAmount: quote?.finalPrice ?? null,
-        }),
-      });
-      const data = (await res.json()) as ReservationResponse;
-      if (!res.ok || data.error) throw new Error(data.error || "Failed to book");
-      const id = data.reservation?.id ?? 0;
-      setDone({ id });
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to book";
-      setError(message);
+      if (!response.ok) throw new Error('Failed to get quote');
+      const data = await response.json();
+      setQuote(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      setSubmitting(false);
+      setIsLoading(false);
+    }
+  };
+  
+  // Handler for creating the final reservation
+  const handleBookNow = async () => {
+     if (!selectedRestaurantId || !selectedMenuId || !selectedDate || !selectedTime || !customerName || !partySize) {
+      setError('Please fill out all fields before booking.');
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    const startsAtISO = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const response = await fetch('/api/reservations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                restaurantId: parseInt(selectedRestaurantId),
+                tableId: 1, // Hardcoded for now, would be dynamic in a real app
+                customerName: customerName,
+                partySize: partySize,
+                startsAtISO: startsAtISO,
+                userId: user?.id // Attach user ID if logged in
+            })
+        });
+        if (!response.ok) throw new Error('Failed to create reservation');
+        setSuccessMessage('Booking confirmed! Check your profile for details.');
+    } catch(err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+        setIsLoading(false);
     }
   }
 
-  if (done) {
+  if (successMessage) {
     return (
-      <main className={`${brand.bg} min-h-screen p-6`}>
-        <div className="mx-auto max-w-xl rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm">
-          <h1 className="mb-2 text-2xl font-semibold text-emerald-700">Reservation Confirmed 🎉</h1>
-          <p className="text-slate-700">
-            Your reservation ID is <span className="font-semibold">#{done.id}</span>. We’ve sent a confirmation to your
-            email/phone if provided.
-          </p>
-          <Link
-            href="/"
-            className="mt-6 inline-flex rounded-xl px-4 py-2 font-medium text-white"
-            style={{ backgroundColor: "#1d7a73" }}
-          >
-            Back to Home
-          </Link>
+        <div className="text-center p-10">
+            <h2 className="text-2xl font-bold text-green-600">Success!</h2>
+            <p className="text-gray-700 mt-2">{successMessage}</p>
+            <a href="/profile" className="text-teal-600 hover:underline mt-4 inline-block">View My Bookings</a>
         </div>
-      </main>
-    );
+    )
   }
 
   return (
-    <main className={`${brand.bg} min-h-screen p-6`}>
-      <form
-        onSubmit={onSubmit}
-        className="mx-auto grid max-w-2xl gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-      >
-        <header className="mb-2">
-          <h1 className="text-2xl font-semibold text-slate-900">Book a Table</h1>
-          <p className="text-slate-600">Pick a restaurant, table, date & time. Get a quote, then confirm.</p>
-        </header>
-
-        {/* Restaurant */}
-        <div className="grid gap-2">
-          <label className={brand.label} htmlFor="restaurant">
-            Restaurant
-          </label>
-          <select
-            id="restaurant"
-            value={restaurantId}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRestaurantId(e.target.value)}
-            className={`${brand.field} w-full rounded-xl px-3 py-2`}
-          >
-            <option value="">Select a restaurant…</option>
-            {restaurants.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Table */}
-        <div className="grid gap-2">
-          <label className={brand.label} htmlFor="table">
-            Table
-          </label>
-          <select
-            id="table"
-            value={tableId}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTableId(e.target.value)}
-            className={`${brand.field} w-full rounded-xl px-3 py-2`}
-            disabled={!restaurantId}
-          >
-            <option value="">{restaurantId ? "Select a table…" : "Choose a restaurant first"}</option>
-            {tables.map((t) => (
-              <option key={t.id} value={t.id}>
-                Table #{t.number}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Name */}
-        <div className="grid gap-2">
-          <label className={brand.label} htmlFor="name">
-            Your Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-            className={`${brand.field} w-full rounded-xl px-3 py-2`}
-            placeholder="Guest name"
-          />
-        </div>
-
-        {/* Party size */}
-        <div className="grid gap-2">
-          <label className={brand.label} htmlFor="party">
-            Party Size
-          </label>
-          <input
-            id="party"
-            type="number"
-            min={1}
-            value={partySize}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPartySize(e.target.value)}
-            className={`${brand.field} w-full rounded-xl px-3 py-2`}
-            placeholder="2"
-          />
-        </div>
-
-        {/* Date/time */}
-        <div className="grid gap-2">
-          <label className={brand.label} htmlFor="when">
-            Date & Time
-          </label>
-          <input
-            id="when"
-            type="datetime-local"
-            value={startsAt}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartsAt(e.target.value)}
-            className={`${brand.field} w-full rounded-xl px-3 py-2`}
-          />
-        </div>
-
-        {/* Menu price (optional, used for quote adjustments) */}
-        <div className="grid gap-2">
-          <label className={brand.label} htmlFor="menuPrice">
-            Menu Price (optional, for prepaid quote)
-          </label>
-          <input
-            id="menuPrice"
-            type="number"
-            step="0.01"
-            value={menuPrice}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMenuPrice(e.target.value)}
-            className={`${brand.field} w-full rounded-xl px-3 py-2`}
-            placeholder="19.50"
-          />
+    <main className="container mx-auto p-4">
+        <div className="bg-white p-6 rounded-lg shadow-md border max-w-lg mx-auto mt-10">
+        <h2 className="text-2xl font-bold mb-4">Book a Table</h2>
+        <div className="space-y-4">
+            {/* Restaurant & Menu */}
+            <div>
+                <label className="block text-sm font-medium">Restaurant</label>
+                <select value={selectedRestaurantId} onChange={e => setSelectedRestaurantId(e.target.value)} className="w-full p-2 border rounded">
+                    {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium">Menu Item</label>
+                <select value={selectedMenuId} onChange={e => setSelectedMenuId(e.target.value)} className="w-full p-2 border rounded">
+                    {menus.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+            </div>
+            {/* Date & Time */}
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium">Date</label>
+                    <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium">Time</label>
+                    <input type="time" value={selectedTime} onChange={e => setSelectedTime(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+            </div>
+            {/* Customer Info */}
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium">Your Name</label>
+                    <input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium">Party Size</label>
+                    <input type="number" value={partySize} onChange={e => setPartySize(parseInt(e.target.value))} className="w-full p-2 border rounded" />
+                </div>
+            </div>
         </div>
 
         {/* Actions */}
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={onQuote}
-            disabled={!canQuote || submitting}
-            className={`rounded-xl px-4 py-2 font-medium text-white disabled:opacity-50 ${brand.primary} ${brand.primaryHover}`}
-          >
-            Get Quote
-          </button>
-
-          <button
-            type="submit"
-            disabled={
-              submitting ||
-              !restaurantId ||
-              !tableId ||
-              !name ||
-              !partySize ||
-              !startsAt ||
-              Number.isNaN(Number(partySize)) ||
-              Number(partySize) <= 0
-            }
-            className={`rounded-xl px-4 py-2 font-medium text-white disabled:opacity-50 ${brand.primary} ${brand.primaryHover}`}
-          >
-            {submitting ? "Booking…" : "Book Now"}
-          </button>
-
-          <span className="text-sm text-slate-500">
-            {quote
-              ? `Quoted: $${quote.finalPrice.toFixed(2)} (base $${quote.basePrice.toFixed(
-                  2
-                )}, adj ${quote.adjustmentPercent}%)`
-              : "No quote yet"}
-          </span>
+        <div className="mt-6 flex items-center gap-4">
+            <button onClick={handleGetQuote} disabled={isLoading} className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded hover:bg-gray-300">
+                {isLoading ? '...' : 'Get Quote'}
+            </button>
+            <button onClick={handleBookNow} disabled={isLoading} className="flex-1 bg-teal-600 text-white py-2 px-4 rounded hover:bg-teal-700">
+                {isLoading ? '...' : 'Book Now'}
+            </button>
         </div>
 
+        {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
         {quote && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
-            <b>Quote:</b> Base ${quote.basePrice.toFixed(2)} · Adj {quote.adjustmentPercent}% ·{" "}
-            <b>Final ${quote.finalPrice.toFixed(2)}</b>
-          </div>
+            <div className="mt-4 p-4 bg-gray-50 rounded">
+                <h3 className="font-semibold">Price Quote:</h3>
+                <p>Final Price: ${quote.finalPrice.toFixed(2)} {quote.ruleName && `(${quote.ruleName})`}</p>
+            </div>
         )}
-
-        {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">{error}</div>
-        )}
-      </form>
+        </div>
     </main>
   );
 }
