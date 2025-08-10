@@ -1,9 +1,9 @@
-﻿// src/components/admin/MenuManager.tsx
+// src/components/admin/MenuManager.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 
 interface MenuItem {
   id: number;
@@ -21,20 +21,26 @@ export default function MenuManager() {
   useEffect(() => {
     async function fetchMenu() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        // 1. Get the user's session from Supabase
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
           setIsLoggedIn(false);
           setIsLoading(false);
-          return; // Stop if user is not logged in
+          return;
         }
         setIsLoggedIn(true);
 
-        const response = await fetch('/api/admin/menu');
-        if (response.status === 401) {
-            throw new Error('You must be logged in to view this page.');
-        }
+        // 2. Make the API call WITH the access token
+        const response = await fetch('/api/admin/menu', {
+          headers: {
+            // 3. Include the token in the Authorization header
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
         if (!response.ok) {
-          throw new Error('Failed to fetch menu data.');
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch menu data.');
         }
         const data = await response.json();
         setMenuItems(data);
@@ -51,7 +57,6 @@ export default function MenuManager() {
     return <p className="text-center">Loading menu...</p>;
   }
 
-  // If user is not logged in, show a helpful message
   if (!isLoggedIn) {
     return (
         <div className="text-center bg-white p-8 rounded-lg shadow-md border">

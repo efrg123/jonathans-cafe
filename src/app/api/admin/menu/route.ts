@@ -1,63 +1,46 @@
 // src/app/api/admin/menu/route.ts
 import { NextResponse } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 import { prisma } from '@/lib/prisma';
 
-export async function GET() {
-  const cookieStore = cookies();
+// NOTE: We no longer need the complex cookie handler here
 
+export async function GET(request: Request) {
+  // 1. Extract the token from the Authorization header
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Missing authorization token' }, { status: 401 });
+  }
+  const jwt = authHeader.split(' ')[1];
+
+  // 2. Create a temporary Supabase client to validate the token
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          // @ts-expect-error - Workaround for type issue in Next.js canary
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          try { 
-            // @ts-expect-error - Workaround for type issue in Next.js canary
-            cookieStore.set({ name, value, ...options }); 
-          } catch (error) {}
-        },
-        remove(name: string, options: CookieOptions) {
-          try { 
-            // @ts-expect-error - Workaround for type issue in Next.js canary
-            cookieStore.set({ name, value: '', ...options }); 
-          } catch (error) {}
-        },
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
   try {
-    // 1. Check if a user is logged in
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // 3. Get the user associated with the token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
     if (authError || !user) {
-      return NextResponse.json({ error: 'You must be logged in to access this.' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // 2. For the MVP, fetch the menu for a hardcoded restaurant (Jonathan's Cafe)
-    // TODO: In the future, get the restaurantId associated with the logged-in user
-    const restaurantId = 1; 
+    // 4. Find the restaurant owned by this user
+    const restaurant = await prisma.restaurant.findUnique({ where: { ownerId: user.id } });
+    if (!restaurant) {
+      return NextResponse.json({ error: 'You do not own a restaurant.' }, { status: 403 });
+    }
 
+    // 5. Fetch the menu for that specific restaurant
     const menuItems = await prisma.menu.findMany({
-      where: {
-        restaurantId: restaurantId,
-      },
-      orderBy: {
-        name: 'asc',
-      },
+      where: { restaurantId: restaurant.id },
+      orderBy: { name: 'asc' },
     });
 
     return NextResponse.json(menuItems);
   } catch (error) {
     console.error('Error fetching admin menu:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch menu data' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch menu data' }, { status: 500 });
   }
 }
