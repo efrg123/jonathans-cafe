@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation'; // Import the router
 import { supabase } from '@/lib/supabaseClient';
 
 export default function AuthForm() {
@@ -11,6 +12,7 @@ export default function AuthForm() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter(); // Initialize the router
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -34,10 +36,12 @@ export default function AuthForm() {
           password,
         });
         if (error) throw error;
-        setMessage('Successfully signed in!');
-        // In a real app, you would redirect the user here
+        setMessage('Successfully signed in! Redirecting...');
+        
+        // FIX: Redirect to the profile page on successful login
+        router.push('/profile');
       }
-    } catch (err) { // <-- THIS IS THE FIX
+    } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
       } else if (typeof err === 'object' && err !== null && 'message' in err) {
