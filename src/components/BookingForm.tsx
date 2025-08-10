@@ -21,28 +21,22 @@ interface PriceQuote {
 export default function BookingForm({ restaurantId }: { restaurantId: number }) {
   const [menus, setMenus] = useState<MenuItem[]>([]);
   const [selectedMenuId, setSelectedMenuId] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>('2025-08-15'); // Default to a Friday for easy testing
+  const [selectedTime, setSelectedTime] = useState<string>('18:00'); // Default to a happy hour time
   const [quote, setQuote] = useState<PriceQuote | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch the list of menus for this restaurant when the component loads
   useEffect(() => {
-    async function fetchMenus() {
-      // In a real app, you would fetch this from an API endpoint
-      // For this example, we'll use the data from our seed script
-      const seededMenus: MenuItem[] = [
-        { id: 1, name: 'Classic Burger', price: 12.99 },
-        { id: 2, name: 'Veggie Wrap', price: 9.99 },
-        { id: 3, name: 'Grilled Chicken Salad', price: 14.50 },
-      ];
-      setMenus(seededMenus);
-      if (seededMenus.length > 0) {
-        setSelectedMenuId(seededMenus[0].id.toString());
-      }
+    const seededMenus: MenuItem[] = [
+      { id: 1, name: 'Classic Burger', price: 12.99 },
+      { id: 2, name: 'Veggie Wrap', price: 9.99 },
+      { id: 3, name: 'Grilled Chicken Salad', price: 14.50 },
+    ];
+    setMenus(seededMenus);
+    if (seededMenus.length > 0) {
+      setSelectedMenuId(seededMenus[0].id.toString());
     }
-    fetchMenus();
   }, [restaurantId]);
 
   const handleGetQuote = async () => {
@@ -55,8 +49,8 @@ export default function BookingForm({ restaurantId }: { restaurantId: number }) 
     setError(null);
     setQuote(null);
 
-    // Combine date and time into a full ISO string
-    const whenISO = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
+    // FIX: Send the local date and time string directly
+    const whenLocal = `${selectedDate}T${selectedTime}:00`;
 
     try {
       const response = await fetch('/api/price-quote', {
@@ -67,7 +61,7 @@ export default function BookingForm({ restaurantId }: { restaurantId: number }) 
         body: JSON.stringify({
           restaurantId,
           menuId: parseInt(selectedMenuId),
-          whenISO,
+          whenLocal, // Use the local time string
         }),
       });
 
@@ -78,7 +72,7 @@ export default function BookingForm({ restaurantId }: { restaurantId: number }) 
 
       const data: PriceQuote = await response.json();
       setQuote(data);
-    } catch (err) { // This line is fixed
+    } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -93,7 +87,6 @@ export default function BookingForm({ restaurantId }: { restaurantId: number }) 
     <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 max-w-md mx-auto mt-10">
       <h2 className="text-2xl font-bold mb-4 text-gray-800">Get a Price Quote</h2>
       
-      {/* Menu Selection */}
       <div className="mb-4">
         <label htmlFor="menu" className="block text-sm font-medium text-gray-700 mb-1">Menu Item</label>
         <select
@@ -110,7 +103,6 @@ export default function BookingForm({ restaurantId }: { restaurantId: number }) 
         </select>
       </div>
 
-      {/* Date and Time Selection */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date</label>
@@ -134,7 +126,6 @@ export default function BookingForm({ restaurantId }: { restaurantId: number }) 
         </div>
       </div>
 
-      {/* Submit Button */}
       <button
         onClick={handleGetQuote}
         disabled={isLoading}
@@ -143,10 +134,8 @@ export default function BookingForm({ restaurantId }: { restaurantId: number }) 
         {isLoading ? 'Getting Price...' : 'Get Price Quote'}
       </button>
 
-      {/* Error Display */}
       {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
 
-      {/* Quote Result Display */}
       {quote && (
         <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
           <h3 className="text-lg font-semibold text-gray-800">Price Details</h3>
