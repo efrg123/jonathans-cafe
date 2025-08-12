@@ -1,9 +1,9 @@
 // app/book/[restaurantId]/page.tsx
+// NO "use client" directive here
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import BookingForm from '@/components/BookingForm'; // Corrected import path
+import BookingForm from '@/components/BookingForm';
 
-// Fetch restaurant data on the server
 async function getRestaurant(restaurantId: number) {
     const restaurant = await prisma.restaurant.findUnique({
         where: { id: restaurantId },
@@ -28,9 +28,7 @@ export default async function BookingPage({ params }: { params: { restaurantId: 
                 </h1>
             </div>
         </header>
-
         <main className="container mx-auto p-8 flex justify-center">
-            {/* Render the client component with the form */}
             <BookingForm restaurantId={restaurantId} />
         </main>
     </div>
