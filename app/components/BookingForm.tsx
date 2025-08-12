@@ -3,7 +3,6 @@
 
 import { FormEvent, useState } from "react";
 
-// We receive the restaurantId as a prop
 export default function BookingForm({ restaurantId }: { restaurantId: number }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

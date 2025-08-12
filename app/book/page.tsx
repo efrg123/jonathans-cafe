@@ -1,5 +1,4 @@
 // app/book/[restaurantId]/page.tsx
-// NO "use client" directive here
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import BookingForm from '@/components/BookingForm';
