@@ -4,24 +4,29 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 
+// Define the type for a menu item for type safety
 interface MenuItem {
     id: number;
     name: string;
     description: string | null;
     price: number;
-    categoryId: number;
 }
 
 export default function MenuAdminPage() {
+    // Corrected typo here: useState now has a space
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Form state
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [price, setPrice] = useState('');
     const [error, setError] = useState<string | null>(null);
 
+    // Fetch initial menu items when the component mounts
     useEffect(() => {
         async function fetchMenuItems() {
+            // This GET endpoint does not exist yet, so we will wrap it in a try/catch
             try {
                 const response = await fetch('/api/menu'); 
                 if (response.ok) {
@@ -29,13 +34,14 @@ export default function MenuAdminPage() {
                     setMenuItems(data);
                 }
             } catch (e) {
-                console.error("Could not fetch menu items.");
+                console.error("Could not fetch menu items. This is expected if the GET endpoint isn't created yet.");
             }
             setIsLoading(false);
         }
         fetchMenuItems();
     }, []);
 
+    // Handle form submission for adding an item
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault();
         setError(null);
@@ -62,10 +68,27 @@ export default function MenuAdminPage() {
                 const errorData = await response.json();
                 errorMessage = errorData.error || "An unknown error occurred.";
             } catch (e) {
-                // This is the corrected line
                 errorMessage = `Request failed: ${response.status} (${response.statusText})`;
             }
             setError(errorMessage);
+        }
+    };
+
+    // Handle deleting an item
+    const handleDelete = async (itemId: number) => {
+        if (!confirm('Are you sure you want to delete this item?')) {
+            return;
+        }
+
+        const response = await fetch(`/api/menu?id=${itemId}`, {
+            method: 'DELETE',
+        });
+
+        if (response.ok) {
+            // Remove the item from the list to update the UI instantly
+            setMenuItems(currentItems => currentItems.filter(item => item.id !== itemId));
+        } else {
+            setError("Failed to delete item. Please check the server logs.");
         }
     };
 
@@ -75,7 +98,7 @@ export default function MenuAdminPage() {
             <div className="mb-10 p-6 bg-white rounded-lg shadow-md">
                 <h2 className="text-2xl font-semibold mb-4">Add a New Menu Item</h2>
                 <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
+                     <div className="mb-4">
                         <label htmlFor="name" className="block text-gray-700 font-medium mb-2">Item Name</label>
                         <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
                     </div>
@@ -107,7 +130,13 @@ export default function MenuAdminPage() {
                                 <tr key={item.id} className="border-t">
                                     <td className="py-2">{item.name}</td>
                                     <td className="py-2">${item.price.toFixed(2)}</td>
-                                    <td className="py-2">{/* Action buttons will go here */}</td>
+                                    <td className="py-2">
+                                        <button 
+                                            onClick={() => handleDelete(item.id)}
+                                            className="bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-lg hover:bg-red-700 transition duration-300">
+                                            Delete
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

@@ -1,5 +1,4 @@
-﻿// app/page.tsx
-import Link from 'next/link';
+﻿import Link from 'next/link';
 
 export default function HomePage() {
   return (
@@ -18,6 +17,12 @@ export default function HomePage() {
           <Link href="/admin/menu" className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300">
             Go to Admin Dashboard
           </Link>
+          {/* --- NEW: Logout Button --- */}
+          <form action="/auth/logout" method="post">
+            <button type="submit" className="bg-red-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-600 transition duration-300">
+              Logout
+            </button>
+          </form>
         </div>
       </div>
     </div>
