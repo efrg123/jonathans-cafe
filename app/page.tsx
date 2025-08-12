@@ -1,4 +1,4 @@
-// app/page.tsx
+﻿// app/page.tsx
 import Link from 'next/link';
 
 export default function HomePage() {
@@ -6,7 +6,7 @@ export default function HomePage() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-center">
       <div className="p-8">
         <h1 className="text-5xl font-extrabold mb-4 text-gray-800">
-          Welcome to Jonathan's Cafe
+          Welcome to Jonathan&apos;s Cafe
         </h1>
         <p className="text-xl text-gray-600 mb-8">
           The all-in-one restaurant management MVP.
