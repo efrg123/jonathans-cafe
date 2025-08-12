@@ -1,8 +1,8 @@
-import { NextResponse, NextRequest } from 'next/server';
+﻿import { NextResponse, NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic'; // This line fixes the issue
 
@@ -85,3 +85,4 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to delete menu item' }, { status: 500 });
     }
 }
+
