@@ -1,10 +1,7 @@
-// src/app/api/admin/menu/route.ts
-// git push force
+﻿// src/app/api/admin/menu/route.ts
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { prisma } from '@/lib/prisma';
-
-// NOTE: We no longer need the complex cookie handler here
 
 export async function GET(request: Request) {
   // 1. Extract the token from the Authorization header
@@ -18,7 +15,20 @@ export async function GET(request: Request) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {} // FIX: Add the required empty options object
+    {
+      // FIX: Provide a dummy cookies object to satisfy the type checker
+      cookies: {
+        get(name: string) {
+          return undefined;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          // No-op
+        },
+        remove(name: string, options: CookieOptions) {
+          // No-op
+        },
+      },
+    }
   );
 
   try {
