@@ -13,6 +13,7 @@ model User {
   id           String        @id @unique
   email        String        @unique
   createdAt    DateTime      @default(now())
+  role          String   @default("USER")
   reservations Reservation[]
   restaurant   Restaurant? // Link back to the restaurant
 }
@@ -31,6 +32,7 @@ model Restaurant {
   orders       Order[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  role          String   @default("USER")
   reservations Reservation[]
   pricingRules PricingRule[]
 }
@@ -61,6 +63,7 @@ model Table {
   restaurantId Int
   restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
   orders       Order[]
+  role          String   @default("USER")
   reservations Reservation[]
   pricingRules PricingRule[]
 }
@@ -127,3 +130,4 @@ model Reservation {
   @@index([restaurantId, startsAt])
   @@index([tableId, startsAt, endsAt])
 }
+
