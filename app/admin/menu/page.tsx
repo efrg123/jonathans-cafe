@@ -12,36 +12,43 @@ interface MenuItem {
     price: number;
 }
 
+// Define the type for the editable fields in the modal
+interface EditableItemData {
+    name: string;
+    description: string;
+    price: number;
+}
+
 export default function MenuAdminPage() {
-    // Corrected typo here: useState now has a space
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-
-    // Form state
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [price, setPrice] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
-    // Fetch initial menu items when the component mounts
+    // State to manage the data inside the edit modal
+    const [modalData, setModalData] = useState<EditableItemData>({ name: '', description: '', price: 0 });
+
     useEffect(() => {
         async function fetchMenuItems() {
-            // This GET endpoint does not exist yet, so we will wrap it in a try/catch
             try {
+                // This GET endpoint does not exist yet, so we will wrap it in a try/catch
                 const response = await fetch('/api/menu'); 
                 if (response.ok) {
                     const data = await response.json();
                     setMenuItems(data);
                 }
             } catch (e) {
-                console.error("Could not fetch menu items. This is expected if the GET endpoint isn't created yet.");
+                console.error("Could not fetch menu items.");
             }
             setIsLoading(false);
         }
         fetchMenuItems();
     }, []);
 
-    // Handle form submission for adding an item
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault();
         setError(null);
@@ -49,13 +56,11 @@ export default function MenuAdminPage() {
             setError("Name and price are required.");
             return;
         }
-
         const response = await fetch('/api/menu', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, description, price: parseFloat(price), categoryId: 1 }),
         });
-
         if (response.ok) {
             const newItem = await response.json();
             setMenuItems(currentItems => [...currentItems, newItem]);
@@ -74,27 +79,66 @@ export default function MenuAdminPage() {
         }
     };
 
-    // Handle deleting an item
     const handleDelete = async (itemId: number) => {
         if (!confirm('Are you sure you want to delete this item?')) {
             return;
         }
+        const response = await fetch(`/api/menu?id=${itemId}`, { method: 'DELETE' });
+        if (response.ok) {
+            setMenuItems(currentItems => currentItems.filter(item => item.id !== itemId));
+        } else {
+            setError("Failed to delete item.");
+        }
+    };
 
-        const response = await fetch(`/api/menu?id=${itemId}`, {
-            method: 'DELETE',
+    const handleEditClick = (item: MenuItem) => {
+        setEditingItem(item);
+        setModalData({
+            name: item.name,
+            description: item.description || '',
+            price: item.price
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleModalClose = () => {
+        setIsModalOpen(false);
+        setEditingItem(null);
+    };
+    
+    const handleModalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setModalData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleUpdateSubmit = async (event: FormEvent) => {
+        event.preventDefault();
+        if (!editingItem) return;
+
+        const response = await fetch('/api/menu', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: editingItem.id,
+                name: modalData.name,
+                description: modalData.description,
+                price: parseFloat(modalData.price.toString()),
+            })
         });
 
         if (response.ok) {
-            // Remove the item from the list to update the UI instantly
-            setMenuItems(currentItems => currentItems.filter(item => item.id !== itemId));
+            const updatedItem = await response.json();
+            setMenuItems(currentItems => currentItems.map(item => item.id === updatedItem.id ? updatedItem : item));
+            handleModalClose();
         } else {
-            setError("Failed to delete item. Please check the server logs.");
+            setError("Failed to update item.");
         }
     };
 
     return (
         <div className="container mx-auto p-8">
             <h1 className="text-3xl font-bold mb-6">Restaurant Dashboard</h1>
+            
             <div className="mb-10 p-6 bg-white rounded-lg shadow-md">
                 <h2 className="text-2xl font-semibold mb-4">Add a New Menu Item</h2>
                 <form onSubmit={handleSubmit}>
@@ -114,6 +158,7 @@ export default function MenuAdminPage() {
                     {error && <p className="text-red-500 mt-4">{error}</p>}
                 </form>
             </div>
+
             <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-2xl font-semibold mb-4">Menu Management</h2>
                 {isLoading ? <p>Loading menu...</p> : (
@@ -130,12 +175,9 @@ export default function MenuAdminPage() {
                                 <tr key={item.id} className="border-t">
                                     <td className="py-2">{item.name}</td>
                                     <td className="py-2">${item.price.toFixed(2)}</td>
-                                    <td className="py-2">
-                                        <button 
-                                            onClick={() => handleDelete(item.id)}
-                                            className="bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-lg hover:bg-red-700 transition duration-300">
-                                            Delete
-                                        </button>
+                                    <td className="py-2 flex gap-2">
+                                        <button onClick={() => handleEditClick(item)} className="bg-yellow-500 text-white text-xs font-bold py-1 px-3 rounded-lg hover:bg-yellow-600 transition">Edit</button>
+                                        <button onClick={() => handleDelete(item.id)} className="bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-lg hover:bg-red-700 transition">Delete</button>
                                     </td>
                                 </tr>
                             ))}
@@ -143,6 +185,51 @@ export default function MenuAdminPage() {
                     </table>
                 )}
             </div>
+
+            {isModalOpen && editingItem && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+                    <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+                        <h2 className="text-2xl font-bold mb-4">Edit: {editingItem.name}</h2>
+                        <form onSubmit={handleUpdateSubmit}>
+                            <div className="mb-4">
+                                <label className="block text-gray-700 mb-2">Name</label>
+                                <input
+                                    name="name"
+                                    type="text"
+                                    value={modalData.name}
+                                    onChange={handleModalChange}
+                                    className="w-full px-4 py-2 border rounded-lg"
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-gray-700 mb-2">Description</label>
+                                <input
+                                    name="description"
+                                    type="text"
+                                    value={modalData.description}
+                                    onChange={handleModalChange}
+                                    className="w-full px-4 py-2 border rounded-lg"
+                                />
+                            </div>
+                             <div className="mb-4">
+                                <label className="block text-gray-700 mb-2">Price</label>
+                                <input
+                                    name="price"
+                                    type="number"
+                                    step="0.01"
+                                    value={modalData.price}
+                                    onChange={handleModalChange}
+                                    className="w-full px-4 py-2 border rounded-lg"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-4 mt-6">
+                                <button type="button" onClick={handleModalClose} className="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                                <button type="submit" className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider   = "prisma-client-js"
   engineType = "library"
@@ -34,9 +36,11 @@ model Restaurant {
 }
 
 model Category {
-  id        Int      @id @default(autoincrement())
-  name      String
-  menuItems Menu[]
+  id           Int           @id @default(autoincrement())
+  name         String
+  menuItems    Menu[]
+  // --- NEW: Link back to PricingRule ---
+  pricingRules PricingRule[]
 }
 
 model Menu {
@@ -98,6 +102,8 @@ model PricingRule {
   name              String?
   restaurantId      Int
   tableId           Int?
+  // --- NEW: Field for category-specific rules ---
+  categoryId        Int?
   dayOfWeek         Int
   startTime         String
   endTime           String
@@ -105,6 +111,8 @@ model PricingRule {
   isActive          Boolean    @default(true)
   restaurant        Restaurant @relation(fields: [restaurantId], references: [id])
   table             Table?     @relation(fields: [tableId], references: [id])
+  // --- NEW: Relation to Category ---
+  category          Category?  @relation(fields: [categoryId], references: [id])
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   @@index([restaurantId, dayOfWeek, startTime, endTime])
